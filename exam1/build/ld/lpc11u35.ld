@@ -41,12 +41,10 @@ SECTIONS
     .text :
     {
         KEEP(*(.isr_vector))
-        *(.text.Reset_Handler)
-        
-        /* Only vectors and code running at reset are safe to be in first 512
-           bytes since RAM can be mapped into this area for RAM based interrupt
-           vectors. */
-        . = 0x00000200;
+
+	. = 0x2FC;
+	KEEP(*(.crp))
+
         *(.text*)
 
         KEEP(*(.init))
@@ -126,7 +124,7 @@ SECTIONS
         __bss_end__ = .;
     } > RAM0
     
-    .heap :
+    .heap (COPY):
     {
         __end__ = .;
         end = __end__;
@@ -137,7 +135,7 @@ SECTIONS
     /* .stack_dummy section doesn't contains any symbols. It is only
      * used for linker to calculate size of stack sections, and assign
      * values to stack symbols later */
-    .stack_dummy :
+    .stack_dummy (COPY):
     {
         *(.stack)
     } > RAM0

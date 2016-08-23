@@ -4,7 +4,7 @@ PROJECT=exam1
 PROJECT_BASE_PATH = ..
 OUTPUT_PATH = ./output
 
-ARM_GCC_TOOLCHAIN=../../../toolchain/gcc-arm-none-eabi-5_4-2016q2/bin
+ARM_GCC_TOOLCHAIN=../../../../toolchain/gcc-arm-none-eabi-5_4-2016q2/bin
 CROSS_COMPILE = $(ARM_GCC_TOOLCHAIN)/arm-none-eabi-
 
 AR = $(CROSS_COMPILE)ar
@@ -30,11 +30,12 @@ ASFLAGS = $(OPTIONS)
 LIBS = -lstdc++ -lsupc++ -lm -lgcc -lc -lnosys
 
 #LD_FLAGS = -nostdlib -fno-builtin 
-LD_FLAGS += -mcpu=cortex-m0 -mthumb
+LD_FLAGS += -mcpu=cortex-m0 -mthumb -march=armv6-m
 LD_FLAGS += -Os  
 LD_FLAGS += -specs=nano.specs
 LD_FLAGS += -Tld/lpc11u35.ld
-LD_FLAGS += -Wl,-Map=$(PROJECT).map,--gc-sections
+LD_FLAGS += -Wl,-Map=$(PROJECT).map
+LD_FLAGS += -Wl,--gc-sections
 
 vpath %.h $(PROJECT_BASE_PATH)/src
 vpath %.c $(PROJECT_BASE_PATH)/src
@@ -57,7 +58,7 @@ A_OBJ_TEMP=$(patsubst %.s, %.o, $(notdir $(A_SRC)))
 A_OBJ_FILTER=
 A_OBJ=$(filter-out $(A_OBJ_FILTER), $(A_OBJ_TEMP))
 
-all: $(PROJECT)
+all: $(PROJECT).axf
 
 $(addprefix $(OUTPUT_PATH)/,$(C_OBJ)): $(OUTPUT_PATH)/%.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
@@ -66,12 +67,13 @@ $(addprefix $(OUTPUT_PATH)/,$(A_OBJ)): $(OUTPUT_PATH)/%.o: %.s
 	$(AS) -c $(AFLAGS) $< -o $@
 
 
-$(PROJECT): $(addprefix $(OUTPUT_PATH)/, $(C_OBJ)) $(addprefix $(OUTPUT_PATH)/, $(A_OBJ))
-	$(LD) $(LD_FLAGS) -o $(PROJECT).axf $^ $(LIBS)
-	$(SIZE) $(PROJECT).axf
-	$(OBJDUMP) -S -d $(PROJECT).axf > $(PROJECT).asm
-	$(OBJCOPY) -O binary -v $(PROJECT).axf firmware.bin
+$(PROJECT).axf: $(addprefix $(OUTPUT_PATH)/, $(C_OBJ)) $(addprefix $(OUTPUT_PATH)/, $(A_OBJ))
+	$(LD) $(LD_FLAGS) -o $@ $^ $(LIBS)
+	$(OBJDUMP) -S -d $@ > $(PROJECT).asm
+	$(OBJCOPY) -O binary $@ firmware.bin
+	./checksum.exe -p lpc11u35 -d firmware.bin
+	$(SIZE) $@
 
 clean :
-	rm -f $(PROJECT).* output/*
+	rm -f $(PROJECT).* output/* firmware.bin
 
