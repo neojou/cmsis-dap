@@ -17,8 +17,8 @@ int main(void)
 
     gpio_init();
 
-    gpio_set_dap_led(1);
     gpio_set_cdc_led(0);
+    gpio_set_dap_led(0);
     gpio_set_msd_led(0);
 
     while(1);

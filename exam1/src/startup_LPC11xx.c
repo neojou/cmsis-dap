@@ -34,11 +34,15 @@
 weak void Reset_Handler(void);
 weak void NMI_Handler(void) alias (Default_Handler);
 weak void HardFault_Handler(void);
+weak void MemManage_Handler(void);
+weak void BusFault_Handler(void);
+weak void UsageFault_Handler(void);
 
 /* LPCxxxx Chip Interrupts */
 
 /* This is defined in the linker script */
 extern void __StackLimit(void);
+extern void __valid_user_code_checksum();
 
 /*
  *  * This array of interrupt vectors is decared in a special section so that the
@@ -46,11 +50,16 @@ extern void __StackLimit(void);
  *    */
 __attribute__ ((section(".isr_vector")))
 const void *isr_vectors[] = {
-  /* Cortex-M3 Core Interrupts */
-  &__StackLimit,	  // The end of the stack.
-  Reset_Handler,	  // The Reset handler
-  NMI_Handler,		  // The NMI handler
-  HardFault_Handler,	  // The Hard Fault Handler
+    /* Cortex-M3 Core Interrupts */
+    &__StackLimit,	  // The end of the stack.
+    Reset_Handler,	  // The Reset handler
+    NMI_Handler,		  // The NMI handler
+    HardFault_Handler,	  // The Hard Fault Handler
+    MemManage_Handler, 	  // The MPU fault handler
+    BusFault_Handler,     // The bus fault handler
+    UsageFault_Handler,   // The usage fault handler
+    __valid_user_code_checksum,  // LPC MCU Checksum <- *** NEW IN LPCXPRESSO 7.9.0
+    0 
 };
 
 /* CRP */
@@ -95,10 +104,23 @@ void Default_Handler(void) {
 
   while(1);
 }
+
 /* HardFault Handler */
 void HardFault_Handler(void) {
   /* Drat! A HardFault */
 
+  while(1);
+}
+
+void MemManage_Handler(void) {
+  while(1);
+}
+
+void BusFault_Handler(void) {
+  while(1);
+}
+
+void UsageFault_Handler(void) {
   while(1);
 }
 

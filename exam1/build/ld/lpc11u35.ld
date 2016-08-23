@@ -148,4 +148,16 @@ SECTIONS
     
     /* Check if data + heap + stack exceeds RAM limit */
     ASSERT(__StackLimit >= __HeapLimit, "region RAM overflowed with stack")
+
+    /* LPC checksum */
+    PROVIDE(__valid_user_code_checksum = 0 -
+		(__StackLimit
+		 + (Reset_Handler +1)
+		 + (NMI_Handler + 1)
+		 + (HardFault_Handler + 1)
+		 + (( DEFINED(MemManage_Handler) ? MemManage_Handler : 0 ) + 1 )
+		 + (( DEFINED(BusFault_Handler) ? BusFault_Handler : 0 ) + 1 )
+		 + (( DEFINED(UsageFault_Handler) ? UsageFault_Handler : 0 ) + 1)
+		));
+
 }

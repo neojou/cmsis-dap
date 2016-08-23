@@ -58,7 +58,7 @@ A_OBJ_TEMP=$(patsubst %.s, %.o, $(notdir $(A_SRC)))
 A_OBJ_FILTER=
 A_OBJ=$(filter-out $(A_OBJ_FILTER), $(A_OBJ_TEMP))
 
-all: $(PROJECT).axf
+all: $(PROJECT).axf firmware.bin 
 
 $(addprefix $(OUTPUT_PATH)/,$(C_OBJ)): $(OUTPUT_PATH)/%.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
@@ -69,10 +69,17 @@ $(addprefix $(OUTPUT_PATH)/,$(A_OBJ)): $(OUTPUT_PATH)/%.o: %.s
 
 $(PROJECT).axf: $(addprefix $(OUTPUT_PATH)/, $(C_OBJ)) $(addprefix $(OUTPUT_PATH)/, $(A_OBJ))
 	$(LD) $(LD_FLAGS) -o $@ $^ $(LIBS)
-	$(OBJDUMP) -S -d $@ > $(PROJECT).asm
-	$(OBJCOPY) -O binary $@ firmware.bin
-	./checksum.exe -p lpc11u35 -d firmware.bin
 	$(SIZE) $@
+
+firmware.bin: $(PROJECT).axf
+	$(OBJDUMP) -S -d $< > $(PROJECT).asm
+	$(OBJCOPY) -O binary $< $@
+ifeq ($(HOST), win)
+	./checksum.exe -p lpc11u35 -d $@
+elif ($(HOST), mac)
+	ehco checksum firmware 
+endif
+
 
 clean :
 	rm -f $(PROJECT).* output/* firmware.bin
