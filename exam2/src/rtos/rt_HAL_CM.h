@@ -1,98 +1,137 @@
-/**
- * @file    rt_HAL_CM.h
- * @brief   
+/* CMSIS-DAP Interface Firmware
+ * Copyright (c) 2009-2013 ARM Limited
  *
- * DAPLink Interface Firmware
- * Copyright (c) 2009-2016, ARM Limited, All Rights Reserved
- * SPDX-License-Identifier: Apache-2.0
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may
- * not use this file except in compliance with the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
-/* Definitions */
-#define INITIAL_xPSR    0x01000000
-#define DEMCR_TRCENA    0x01000000
-#define ITM_ITMENA      0x00000001
-#define MAGIC_WORD      0xE25A2EA5
+#ifndef __RT_HAL_CM_H__
+#define __RT_HAL_CM_H__
 
-// ARMCC has deprecated use for ldrex and strex functions
-// from C so do not used them on any devices.
-#if (0)
+
+
+/* Definitions */
+#define INITIAL_xPSR    0x01000000U
+#define DEMCR_TRCENA    0x01000000U
+#define ITM_ITMENA      0x00000001U
+#define MAGIC_WORD      0xE25A2EA5U
+#define MAGIC_PATTERN   0xCCCCCCCCU
+
+#if ((__TARGET_ARCH_7_M || __TARGET_ARCH_7E_M) && !NO_EXCLUSIVE_ACCESS)
  #define __USE_EXCLUSIVE_ACCESS
 #else
  #undef  __USE_EXCLUSIVE_ACCESS
 #endif
 
+#ifndef __CMSIS_GENERIC
+#define __DMB() do {\
+                   __schedule_barrier();\
+                   __dmb(0xF);\
+                   __schedule_barrier();\
+                } while (0)
+#endif
+
+#undef  __USE_EXCLUSIVE_ACCESS
+
+#if defined (__CORTEX_M0)
+#define __TARGET_ARCH_6S_M
+#endif
+
+#if defined (__VFP_FP__) && !defined(__SOFTFP__)
+#define __TARGET_FPU_VFP
+#endif
+
+#define __inline inline
+#define __weak   __attribute__((weak))
+
+#ifndef __CMSIS_GENERIC
+
+__attribute__((always_inline)) static inline void __enable_irq(void)
+{
+  __asm volatile ("cpsie i");
+}
+
+__attribute__((always_inline)) static inline U32 __disable_irq(void)
+{
+  U32 result;
+
+  __asm volatile ("mrs %0, primask" : "=r" (result));
+  __asm volatile ("cpsid i");
+  return(result & 1);
+}
+
+
+#endif
+
 /* NVIC registers */
-#define NVIC_ST_CTRL    (*((volatile U32 *)0xE000E010))
-#define NVIC_ST_RELOAD  (*((volatile U32 *)0xE000E014))
-#define NVIC_ST_CURRENT (*((volatile U32 *)0xE000E018))
-#define NVIC_ISER         ((volatile U32 *)0xE000E100)
-#define NVIC_ICER         ((volatile U32 *)0xE000E180)
-#if (__TARGET_ARCH_6S_M)
-#define NVIC_IP           ((volatile U32 *)0xE000E400)
+#define NVIC_ST_CTRL    (*((volatile U32 *)0xE000E010U))
+#define NVIC_ST_RELOAD  (*((volatile U32 *)0xE000E014U))
+#define NVIC_ST_CURRENT (*((volatile U32 *)0xE000E018U))
+#define NVIC_ISER         ((volatile U32 *)0xE000E100U)
+#define NVIC_ICER         ((volatile U32 *)0xE000E180U)
+#if defined(__TARGET_ARCH_6S_M)
+#define NVIC_IP           ((volatile U32 *)0xE000E400U)
 #else
-#define NVIC_IP           ((volatile U8  *)0xE000E400)
+#define NVIC_IP           ((volatile U8  *)0xE000E400U)
 #endif
-#define NVIC_INT_CTRL   (*((volatile U32 *)0xE000ED04))
-#define NVIC_AIR_CTRL   (*((volatile U32 *)0xE000ED0C))
-#define NVIC_SYS_PRI2   (*((volatile U32 *)0xE000ED1C))
-#define NVIC_SYS_PRI3   (*((volatile U32 *)0xE000ED20))
+#define NVIC_INT_CTRL   (*((volatile U32 *)0xE000ED04U))
+#define NVIC_AIR_CTRL   (*((volatile U32 *)0xE000ED0CU))
+#define NVIC_SYS_PRI2   (*((volatile U32 *)0xE000ED1CU))
+#define NVIC_SYS_PRI3   (*((volatile U32 *)0xE000ED20U))
 
-#define OS_PEND_IRQ()   NVIC_INT_CTRL  = (1<<28)
-#define OS_PENDING      ((NVIC_INT_CTRL >> 26) & (1<<2 | 1))
-#define OS_UNPEND(fl)   NVIC_INT_CTRL  = (*fl = OS_PENDING) << 25
-#define OS_PEND(fl,p)   NVIC_INT_CTRL  = (fl | p<<2) << 26
-#define OS_LOCK()       NVIC_ST_CTRL   =  0x0005
-#define OS_UNLOCK()     NVIC_ST_CTRL   =  0x0007
+#define OS_PEND_IRQ()   NVIC_INT_CTRL  = (1UL<<28)
+#define OS_PENDING      ((NVIC_INT_CTRL >> 26) & 5U)
+#define OS_UNPEND(fl)   NVIC_INT_CTRL  = (U32)(*fl = (U8)OS_PENDING) << 25
+#define OS_PEND(fl,p)   NVIC_INT_CTRL  = (U32)(fl | (U8)(p<<2)) << 26
+#define OS_LOCK()       NVIC_ST_CTRL   =  0x0005U
+#define OS_UNLOCK()     NVIC_ST_CTRL   =  0x0007U
 
-#define OS_X_PENDING    ((NVIC_INT_CTRL >> 28) & 1)
-#define OS_X_UNPEND(fl) NVIC_INT_CTRL  = (*fl = OS_X_PENDING) << 27
-#define OS_X_PEND(fl,p) NVIC_INT_CTRL  = (fl | p) << 28
-#if (__TARGET_ARCH_6S_M)
-#define OS_X_INIT(n)    NVIC_IP[n>>2] |= 0xFF << (8*(n & 0x03)); \
-                        NVIC_ISER[n>>5] = 1 << (n & 0x1F)
+#define OS_X_PENDING    ((NVIC_INT_CTRL >> 28) & 1U)
+#define OS_X_UNPEND(fl) NVIC_INT_CTRL  = (U32)(*fl = (U8)OS_X_PENDING) << 27
+#define OS_X_PEND(fl,p) NVIC_INT_CTRL  = (U32)(fl | p) << 28
+#if defined(__TARGET_ARCH_6S_M)
+#define OS_X_INIT(n)    NVIC_IP[n>>2] |=  (U32)0xFFU << ((n & 0x03U) << 3); \
+                        NVIC_ISER[n>>5] = (U32)1U << (n & 0x1FU)
 #else
-#define OS_X_INIT(n)    NVIC_IP[n] = 0xFF; \
-                        NVIC_ISER[n>>5] = 1 << (n & 0x1F)
+#define OS_X_INIT(n)    NVIC_IP[n] = 0xFFU; \
+                        NVIC_ISER[n>>5] = (U32)1U << (n & 0x1FU)
 #endif
-#define OS_X_LOCK(n)    NVIC_ICER[n>>5] = 1 << (n & 0x1F)
-#define OS_X_UNLOCK(n)  NVIC_ISER[n>>5] = 1 << (n & 0x1F)
+#define OS_X_LOCK(n)    NVIC_ICER[n>>5] = (U32)1U << (n & 0x1FU)
+#define OS_X_UNLOCK(n)  NVIC_ISER[n>>5] = (U32)1U << (n & 0x1FU)
 
 /* Core Debug registers */
-#define DEMCR           (*((volatile U32 *)0xE000EDFC))
+#define DEMCR           (*((volatile U32 *)0xE000EDFCU))
 
 /* ITM registers */
-#define ITM_CONTROL     (*((volatile U32 *)0xE0000E80))
-#define ITM_ENABLE      (*((volatile U32 *)0xE0000E00))
-#define ITM_PORT30_U32  (*((volatile U32 *)0xE0000078))
-#define ITM_PORT31_U32  (*((volatile U32 *)0xE000007C))
-#define ITM_PORT31_U16  (*((volatile U16 *)0xE000007C))
-#define ITM_PORT31_U8   (*((volatile U8  *)0xE000007C))
+#define ITM_CONTROL     (*((volatile U32 *)0xE0000E80U))
+#define ITM_ENABLE      (*((volatile U32 *)0xE0000E00U))
+#define ITM_PORT30_U32  (*((volatile U32 *)0xE0000078U))
+#define ITM_PORT31_U32  (*((volatile U32 *)0xE000007CU))
+#define ITM_PORT31_U16  (*((volatile U16 *)0xE000007CU))
+#define ITM_PORT31_U8   (*((volatile U8  *)0xE000007CU))
 
 /* Variables */
 extern BIT dbg_msg;
 
 /* Functions */
 #ifdef __USE_EXCLUSIVE_ACCESS
- #define rt_inc(p)     while(__strex((__ldrex(p)+1),p))
- #define rt_dec(p)     while(__strex((__ldrex(p)-1),p))
+ #define rt_inc(p)     while(__strex((__ldrex(p)+1U),p))
+ #define rt_dec(p)     while(__strex((__ldrex(p)-1U),p))
 #else
  #define rt_inc(p)     __disable_irq();(*p)++;__enable_irq();
  #define rt_dec(p)     __disable_irq();(*p)--;__enable_irq();
 #endif
 
-static inline U32 rt_inc_qi (U32 size, U8 *count, U8 *first) {
+__inline U32 rt_inc_qi (U32 size, U8 *count, U8 *first) {
   U32 cnt,c2;
 #ifdef __USE_EXCLUSIVE_ACCESS
   do {
@@ -117,28 +156,16 @@ static inline U32 rt_inc_qi (U32 size, U8 *count, U8 *first) {
   return (cnt);
 }
 
-static inline void rt_systick_init (void) {
+__inline void rt_systick_init (void) {
   NVIC_ST_RELOAD  = os_trv;
   NVIC_ST_CURRENT = 0;
   NVIC_ST_CTRL    = 0x0007;
   NVIC_SYS_PRI3  |= 0xFF000000;
 }
 
-static inline void rt_svc_init (void) {
-#if !(__TARGET_ARCH_6S_M)
-  int sh,prigroup;
-#endif
+__inline void rt_svc_init (void) {
   NVIC_SYS_PRI3 |= 0x00FF0000;
-#if (__TARGET_ARCH_6S_M)
   NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000;
-#else
-  sh       = 8 - __clz (~((NVIC_SYS_PRI3 << 8) & 0xFF000000));
-  prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07);
-  if (prigroup >= sh) {
-    sh = prigroup + 1;
-  }
-  NVIC_SYS_PRI2 = ((0xFEFFFFFF << sh) & 0xFF000000) | (NVIC_SYS_PRI2 & 0x00FFFFFF);
-#endif
 }
 
 extern void rt_init_stack (P_TCB p_TCB, FUNCP task_body);
@@ -163,6 +190,8 @@ extern void dbg_task_switch (U32 task_id);
 #define DBG_TASK_SWITCH(task_id)
 #endif
 
+
+#endif __RT_HAL_CM_H__ //
 /*----------------------------------------------------------------------------
  * end of file
  *---------------------------------------------------------------------------*/

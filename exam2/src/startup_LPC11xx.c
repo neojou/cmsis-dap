@@ -28,21 +28,28 @@
  *  */
  
 #define alias(f) __attribute__ ((alias(#f)))
-#define weak __attribute__ ((weak))
+#define __weak __attribute__ ((weak))
 
 /* Cortex-M# Core Interrupts */
-weak void Reset_Handler(void);
-weak void NMI_Handler(void) alias (Default_Handler);
-weak void HardFault_Handler(void);
-weak void MemManage_Handler(void);
-weak void BusFault_Handler(void);
-weak void UsageFault_Handler(void);
+__weak void Reset_Handler(void);
+__weak void NMI_Handler(void) alias (Default_Handler);
+__weak void HardFault_Handler(void);
+__weak void MemManage_Handler(void);
+__weak void BusFault_Handler(void);
+__weak void UsageFault_Handler(void);
 
 /* LPCxxxx Chip Interrupts */
 
 /* This is defined in the linker script */
 extern void __StackLimit(void);
 extern void __valid_user_code_checksum();
+
+
+typedef void (*vect_t)(void);
+
+extern	void SVC_Handler (void);
+extern	void PendSV_Handler (void);
+extern	void SysTick_Handler (void);
 
 /*
  *  * This array of interrupt vectors is decared in a special section so that the
@@ -59,7 +66,14 @@ const void *isr_vectors[] = {
     BusFault_Handler,     // The bus fault handler
     UsageFault_Handler,   // The usage fault handler
     __valid_user_code_checksum,  // LPC MCU Checksum <- *** NEW IN LPCXPRESSO 7.9.0
-    0 
+    0, 	
+	0,						  // Reserved
+	0,						  // Reserved
+	(vect_t)SVC_Handler,	  // SVCall Handler
+	0,						  // Reserved
+	0,						  // Reserved
+	(vect_t)PendSV_Handler,   // PendSV Handler
+	(vect_t)SysTick_Handler,  // SysTick Handler
 };
 
 /* CRP */
@@ -75,7 +89,7 @@ extern unsigned int __data_end__;
 extern unsigned int __bss_start__;
 extern unsigned int __bss_end__;
 
-extern int main(void);
+extern void app_start(void);
 
 /* The entry point to our program */
 __attribute__ ((naked))
@@ -91,7 +105,7 @@ void Reset_Handler (void) {
        destination < &__bss_end__; )
     *destination++ = 0;
 
-  main();
+  app_start();
   
   /* Wait here forever so the chip doesn't go haywire */
   while (1);

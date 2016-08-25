@@ -4,7 +4,7 @@ PROJECT=exam1
 PROJECT_BASE_PATH = ..
 OUTPUT_PATH = ./output
 
-ARM_GCC_TOOLCHAIN=../../../../toolchain/gcc-arm-none-eabi-5_4-2016q2/bin
+ARM_GCC_TOOLCHAIN=../../toolchain/$(TOOLCHAIN_NAME)/bin
 CROSS_COMPILE = $(ARM_GCC_TOOLCHAIN)/arm-none-eabi-
 
 AR = $(CROSS_COMPILE)ar
@@ -17,15 +17,17 @@ OBJDUMP = $(CROSS_COMPILE)objdump
 OBJCOPY = $(CROSS_COMPILE)objcopy
 
 
-OPTIONS = -g -Os -Wall -fno-strict-aliasing 
+OPTIONS = -g -Wall 
 OPTIONS += -ffunction-sections -fdata-sections -fno-exceptions -fno-delete-null-pointer-checks
 OPTIONS += -fmessage-length=0 -fno-builtin -mthumb
 OPTIONS += -mcpu=cortex-m0 -MMD -MP 
+OPTIONS += -D__TARGET_ARCH_6S_M
 
-CFLAGS = $(OPTIONS) -std=gnu99
-CXXFLAGS = $(OPTIONS) -fno-rtti -std=gnu++98 
 
-ASFLAGS = $(OPTIONS) 
+CFLAGS = $(OPTIONS) -Os -std=gnu99 -fno-strict-aliasing 
+CXXFLAGS = $(OPTIONS) -Os -fno-rtti -std=gnu++98 -fno-strict-aliasing 
+
+ASFLAGS = -mcpu=cortex-m0  
 
 LIBS = -lstdc++ -lsupc++ -lm -lgcc -lc -lnosys
 
@@ -39,21 +41,32 @@ LD_FLAGS += -Wl,--gc-sections
 
 vpath %.h $(PROJECT_BASE_PATH)/src
 vpath %.c $(PROJECT_BASE_PATH)/src
+vpath %.h $(PROJECT_BASE_PATH)/src/rtos
+vpath %.c $(PROJECT_BASE_PATH)/src/rtos
+vpath %.c $(PROJECT_BASE_PATH)/src/rtos/cm0
 
 VPATH=$(PROJECT_BASE_PATH)/src
+VPATH=$(PROJECT_BASE_PATH)/src/rtos
+VPATH=$(PROJECT_BASE_PATH)/src/rtos/cm0
 
 INCLUDES = -I$(PROJECT_BASE_PATH)/src
+INCLUDES += -I$(PROJECT_BASE_PATH)/src/rtos
 
 CFLAGS += $(INCLUDES)
-AFLAGS += $(INCLUDES)
+ASFLAGS += $(INCLUDES)
 
 
 C_SRC=$(wildcard $(PROJECT_BASE_PATH)/src/*.c)
+C_SRC+=$(wildcard $(PROJECT_BASE_PATH)/src/rtos/*.c)
+C_SRC+=$(wildcard $(PROJECT_BASE_PATH)/src/rtos/cm0/*.c)
+
 C_OBJ_TEMP=$(patsubst %.c, %.o, $(notdir $(C_SRC)))
 C_OBJ_FILTER=
 C_OBJ=$(filter-out $(C_OBJ_FILTER), $(C_OBJ_TEMP))
 
 A_SRC=$(wildcard $(PROJECT_BASE_PATH)/src/*.s)
+A_SRC+=$(wildcard $(PROJECT_BASE_PATH)/src/rtos/cm0/*.s)
+
 A_OBJ_TEMP=$(patsubst %.s, %.o, $(notdir $(A_SRC)))
 A_OBJ_FILTER=
 A_OBJ=$(filter-out $(A_OBJ_FILTER), $(A_OBJ_TEMP))
@@ -64,7 +77,7 @@ $(addprefix $(OUTPUT_PATH)/,$(C_OBJ)): $(OUTPUT_PATH)/%.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
 
 $(addprefix $(OUTPUT_PATH)/,$(A_OBJ)): $(OUTPUT_PATH)/%.o: %.s
-	$(AS) -c $(AFLAGS) $< -o $@
+	$(AS) -c $(ASFLAGS) $< -o $@
 
 
 $(PROJECT).axf: $(addprefix $(OUTPUT_PATH)/, $(C_OBJ)) $(addprefix $(OUTPUT_PATH)/, $(A_OBJ))
@@ -74,11 +87,9 @@ $(PROJECT).axf: $(addprefix $(OUTPUT_PATH)/, $(C_OBJ)) $(addprefix $(OUTPUT_PATH
 firmware.bin: $(PROJECT).axf
 	$(OBJDUMP) -S -d $< > $(PROJECT).asm
 	$(OBJCOPY) -O binary $< $@
-ifeq ($(HOST), win)
-	./checksum.exe -p lpc11u35 -d $@
-elif ($(HOST), mac)
-	ehco checksum firmware 
-endif
+#ifeq ($(HOST), cygwin)
+#	./checksum.exe -p lpc11u35 -d $@
+#endif
 
 
 clean :

@@ -1,23 +1,36 @@
-/**
- * @file    rt_System.c
- * @brief   
+/*----------------------------------------------------------------------------
+ *      CMSIS-RTOS  -  RTX
+ *----------------------------------------------------------------------------
+ *      Name:    RT_SYSTEM.C
+ *      Purpose: System Task Manager
+ *      Rev.:    V4.81
+ *----------------------------------------------------------------------------
  *
- * DAPLink Interface Firmware
- * Copyright (c) 2009-2016, ARM Limited, All Rights Reserved
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright (c) 1999-2009 KEIL, 2009-2015 ARM Germany GmbH
+ * All rights reserved.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *  - Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  - Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  - Neither the name of ARM  nor the names of its contributors may be used 
+ *    to endorse or promote products derived from this software without 
+ *    specific prior written permission.
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may
- * not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDERS AND CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *---------------------------------------------------------------------------*/
 
 #include "rt_TypeDef.h"
 #include "RTX_Config.h"
@@ -50,13 +63,15 @@ static          U8  pend_flags;
  *      Global Functions
  *---------------------------------------------------------------------------*/
 
+#define RL_RTX_VER      0x481
+
 #if defined (__CC_ARM)
 __asm void $$RTX$$version (void) {
    /* Export a version number symbol for a version control. */
 
                 EXPORT  __RL_RTX_VER
 
-__RL_RTX_VER    EQU     0x470
+__RL_RTX_VER    EQU     RL_RTX_VER
 }
 #endif
 
@@ -82,6 +97,8 @@ U32 rt_suspend (void) {
 
 /*--------------------------- rt_resume -------------------------------------*/
 
+extern void sysUserTimerUpdate (U32 sleep_time);
+
 void rt_resume (U32 sleep_time) {
   /* Resume OS scheduler after suspend */
   P_TCB next;
@@ -98,36 +115,40 @@ void rt_resume (U32 sleep_time) {
     if (delta >= os_dly.delta_time) {
       delta   -= os_dly.delta_time;
       os_time += os_dly.delta_time;
-      os_dly.delta_time = 1;
+      os_dly.delta_time = 1U;
       while (os_dly.p_dlnk) {
         rt_dec_dly();
-        if (delta == 0) break;
+        if (delta == 0U) { break; }
         delta--;
         os_time++;
       }
     } else {
-      os_time           += delta;
-      os_dly.delta_time -= delta;
+      os_time           +=      delta;
+      os_dly.delta_time -= (U16)delta;
     }
   } else {
     os_time += sleep_time;
   }
 
   /* Check the user timers. */
+#ifdef __CMSIS_RTOS
+  sysUserTimerUpdate(sleep_time);
+#else
   if (os_tmr.next) {
     delta = sleep_time;
     if (delta >= os_tmr.tcnt) {
       delta   -= os_tmr.tcnt;
-      os_tmr.tcnt = 1;
+      os_tmr.tcnt = 1U;
       while (os_tmr.next) {
         rt_tmr_tick();
-        if (delta == 0) break;
+        if (delta == 0U) { break; }
         delta--;
       }
     } else {
       os_tmr.tcnt -= delta;
     }
   }
+#endif
 
   /* Switch back to highest ready task */
   next = rt_get_first (&os_rdy);
@@ -144,11 +165,11 @@ void rt_tsk_lock (void) {
   if (os_tick_irqn < 0) {
     OS_LOCK();
     os_lock = __TRUE;
-    OS_UNPEND (&pend_flags);
+    OS_UNPEND(&pend_flags);
   } else {
-    OS_X_LOCK(os_tick_irqn);
+    OS_X_LOCK((U32)os_tick_irqn);
     os_lock = __TRUE;
-    OS_X_UNPEND (&pend_flags);
+    OS_X_UNPEND(&pend_flags);
   }
 }
 
@@ -160,12 +181,12 @@ void rt_tsk_unlock (void) {
   if (os_tick_irqn < 0) {
     OS_UNLOCK();
     os_lock = __FALSE;
-    OS_PEND (pend_flags, os_psh_flag);
+    OS_PEND(pend_flags, os_psh_flag);
     os_psh_flag = __FALSE;
   } else {
-    OS_X_UNLOCK(os_tick_irqn);
+    OS_X_UNLOCK((U32)os_tick_irqn);
     os_lock = __FALSE;
-    OS_X_PEND (pend_flags, os_psh_flag);
+    OS_X_PEND(pend_flags, os_psh_flag);
     os_psh_flag = __FALSE;
   }
 }
@@ -176,7 +197,7 @@ void rt_tsk_unlock (void) {
 void rt_psh_req (void) {
   /* Initiate a post service handling request if required. */
   if (os_lock == __FALSE) {
-    OS_PEND_IRQ ();
+    OS_PEND_IRQ();
   }
   else {
     os_psh_flag = __TRUE;
@@ -210,10 +231,10 @@ void rt_pop_req (void) {
       /* Must be of SCB type */
       rt_sem_psh ((P_SCB)p_CB);
     }
-    if (++idx == os_psq->size) idx = 0;
+    if (++idx == os_psq->size) { idx = 0U; }
     rt_dec (&os_psq->count);
   }
-  os_psq->last = idx;
+  os_psq->last = (U8)idx;
 
   next = rt_get_first (&os_rdy);
   rt_switch_req (next);
@@ -222,9 +243,9 @@ void rt_pop_req (void) {
 
 /*--------------------------- os_tick_init ----------------------------------*/
 
-__weak int os_tick_init (void) {
+__weak S32 os_tick_init (void) {
   /* Initialize SysTick timer as system tick timer. */
-  rt_systick_init ();
+  rt_systick_init();
   return (-1);  /* Return IRQ number of SysTick timer */
 }
 
@@ -237,6 +258,8 @@ __weak void os_tick_irqack (void) {
 
 
 /*--------------------------- rt_systick ------------------------------------*/
+
+extern void sysTimerTick(void);
 
 void rt_systick (void) {
   /* Check for system clock update, suspend running task. */
@@ -253,7 +276,11 @@ void rt_systick (void) {
   rt_dec_dly ();
 
   /* Check the user timers. */
+#ifdef __CMSIS_RTOS
+  sysTimerTick();
+#else
   rt_tmr_tick ();
+#endif
 
   /* Switch back to highest ready task */
   next = rt_get_first (&os_rdy);
@@ -264,7 +291,7 @@ void rt_systick (void) {
 
 __weak void rt_stk_check (void) {
   /* Check for stack overflow. */
-  if ((os_tsk.run->tsk_stack < (U32)os_tsk.run->stack) ||
+  if ((os_tsk.run->tsk_stack < (U32)os_tsk.run->stack) || 
       (os_tsk.run->stack[0] != MAGIC_WORD)) {
     os_error (OS_ERR_STK_OVF);
   }
@@ -273,4 +300,3 @@ __weak void rt_stk_check (void) {
 /*----------------------------------------------------------------------------
  * end of file
  *---------------------------------------------------------------------------*/
-

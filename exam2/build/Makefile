@@ -4,7 +4,7 @@ PROJECT=exam1
 PROJECT_BASE_PATH = ..
 OUTPUT_PATH = ./output
 
-ARM_GCC_TOOLCHAIN=../../../../toolchain/gcc-arm-none-eabi-5_4-2016q2/bin
+ARM_GCC_TOOLCHAIN=../../toolchain/$(TOOLCHAIN_NAME)/bin
 CROSS_COMPILE = $(ARM_GCC_TOOLCHAIN)/arm-none-eabi-
 
 AR = $(CROSS_COMPILE)ar
@@ -21,8 +21,7 @@ OPTIONS = -g -Wall
 OPTIONS += -ffunction-sections -fdata-sections -fno-exceptions -fno-delete-null-pointer-checks
 OPTIONS += -fmessage-length=0 -fno-builtin -mthumb
 OPTIONS += -mcpu=cortex-m0 -MMD -MP 
-OPTIONS += -D__TARGET_ARCH_6S_M
-
+OPTIONS += -D__CORTEX_M0 -D__TARGET_ARCH_6S_M 
 
 CFLAGS = $(OPTIONS) -Os -std=gnu99 -fno-strict-aliasing 
 CXXFLAGS = $(OPTIONS) -Os -fno-rtti -std=gnu++98 -fno-strict-aliasing 
@@ -33,17 +32,22 @@ LIBS = -lstdc++ -lsupc++ -lm -lgcc -lc -lnosys
 
 #LD_FLAGS = -nostdlib -fno-builtin 
 LD_FLAGS += -mcpu=cortex-m0 -mthumb -march=armv6-m
+LD_FLAGS += -ffunction-sections -fdata-sections
 LD_FLAGS += -Os  
 LD_FLAGS += -specs=nano.specs
 LD_FLAGS += -Tld/lpc11u35.ld
 LD_FLAGS += -Wl,-Map=$(PROJECT).map
 LD_FLAGS += -Wl,--gc-sections
 
+
+#
 vpath %.h $(PROJECT_BASE_PATH)/src
 vpath %.c $(PROJECT_BASE_PATH)/src
 vpath %.h $(PROJECT_BASE_PATH)/src/rtos
 vpath %.c $(PROJECT_BASE_PATH)/src/rtos
+vpath %.s $(PROJECT_BASE_PATH)/src/rtos
 vpath %.c $(PROJECT_BASE_PATH)/src/rtos/cm0
+vpath %.s $(PROJECT_BASE_PATH)/src/rtos/cm0
 
 VPATH=$(PROJECT_BASE_PATH)/src
 VPATH=$(PROJECT_BASE_PATH)/src/rtos
@@ -65,6 +69,7 @@ C_OBJ_FILTER=
 C_OBJ=$(filter-out $(C_OBJ_FILTER), $(C_OBJ_TEMP))
 
 A_SRC=$(wildcard $(PROJECT_BASE_PATH)/src/*.s)
+A_SRC+=$(wildcard $(PROJECT_BASE_PATH)/src/rtos/*.s)
 A_SRC+=$(wildcard $(PROJECT_BASE_PATH)/src/rtos/cm0/*.s)
 
 A_OBJ_TEMP=$(patsubst %.s, %.o, $(notdir $(A_SRC)))
@@ -87,11 +92,9 @@ $(PROJECT).axf: $(addprefix $(OUTPUT_PATH)/, $(C_OBJ)) $(addprefix $(OUTPUT_PATH
 firmware.bin: $(PROJECT).axf
 	$(OBJDUMP) -S -d $< > $(PROJECT).asm
 	$(OBJCOPY) -O binary $< $@
-ifeq ($(HOST), win)
-	./checksum.exe -p lpc11u35 -d $@
-elif ($(HOST), mac)
-	ehco checksum firmware 
-endif
+#ifeq ($(HOST), cygwin)
+#	./checksum.exe -p lpc11u35 -d $@
+#endif
 
 
 clean :

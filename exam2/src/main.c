@@ -1,50 +1,40 @@
 
 #include <stdint.h>
-#include "RTL.h"
+#include "cmsis_os.h"
 #include "gpio.h"
 
-
-#define MAIN_TASK_PRIORITY (10)
-#define MAIN_TASK_STACK	   (800)
-static uint64_t stk_main_task [MAIN_TASK_STACK / sizeof(uint64_t)];
+extern void main_task(void);
 
 
-void board_init(void)
+void main_task(void) 
 {
-}
+	int i=0;
 
-void main_task(void)
-{
     while (1) {
-        gpio_set_cdc_led(0);
-        gpio_set_dap_led(0);
-        gpio_set_msd_led(0);
 
+        gpio_set_msd_led(((i&1)==0)?1:0);
+        gpio_set_dap_led(((i&2)==0)?1:0);
+        gpio_set_cdc_led(((i&4)==0)?1:0);
+
+		i++;
         os_dly_wait(1000);
         
-        gpio_set_cdc_led(1);
-        gpio_set_dap_led(1);
-        gpio_set_msd_led(1);
-
-        os_dly_wait(1000);
-
     }
 }
 
-
+#define MAIN_TASK_PRIORITY          (8)
+#define MAIN_TASK_STACK     (200)
+static U64 stk_main_task[MAIN_TASK_STACK/8];
 
 int main(void)
 {
-    SystemInit();
+	gpio_init();
+	gpio_set_cdc_led(0);
+	gpio_set_dap_led(0);
+	gpio_set_msd_led(0);
 
-    SystemCoreClockUpdate();
+	os_sys_init_user(main_task, MAIN_TASK_PRIORITY, stk_main_task, MAIN_TASK_STACK);
 
-    board_init();
-
-    gpio_init();
-
-
-    os_sys_init_user(main_task, MAIN_TASK_PRIORITY, stk_main_task, MAIN_TASK_STACK);
-    return 0;
+	for (;;);
 }
 
