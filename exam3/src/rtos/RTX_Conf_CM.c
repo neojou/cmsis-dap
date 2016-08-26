@@ -144,7 +144,7 @@
 //   <i> Defines the timer tick value.
 //   <i> Default: 1000  (1ms)
 #ifndef OS_TICK
-#define OS_TICK        1000
+#define OS_TICK        100
 #endif
 
 // </h>
@@ -233,7 +233,7 @@
  *      RTX User configuration part END
  *---------------------------------------------------------------------------*/
 
-#define OS_TRV          ((uint32_t)((OS_CLOCK/1000)-1))
+#define OS_TRV          ((uint32_t)((OS_CLOCK/100)-1))
 //#define OS_TRV          ((uint32_t)((OS_CLOCK*OS_TICK)-1)
 
 
