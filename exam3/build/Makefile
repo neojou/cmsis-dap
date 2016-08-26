@@ -1,5 +1,5 @@
 
-PROJECT=exam2
+PROJECT=exam3
 
 PROJECT_BASE_PATH = ..
 OUTPUT_PATH = ./output
